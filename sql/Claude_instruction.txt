@@ -1,0 +1,211 @@
+# Creating Skool Database in MySQL Workbench
+https://claude.ai/chat/999c8f70-5e64-4a65-8ad7-365c057e51d3
+
+## Step 1: Create New Schema
+1. Open MySQL Workbench
+2. Click on the '+' icon next to "MySQL Connections"
+3. Connect to your MySQL server
+4. Click on the "Create new schema" button in the toolbar
+5. Name it `skool_db`
+6. Click "Apply"
+
+## Step 2: Create Tables
+Execute the following SQL statements in order (each separated by semicolons). The order is important due to foreign key constraints.
+
+
+
+// change "DATE...CURRENT_DATE" => "TIMESTAMP ... CURRENT_TIMESTAMP," below
+
+
+
+
+### 1. Users Table
+```sql
+CREATE TABLE Users (
+    UserID INT AUTO_INCREMENT PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Email VARCHAR(255) NOT NULL UNIQUE,
+    Role ENUM('Educator', 'Member') NOT NULL,
+    JoinDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    ProfileDetails TEXT,
+    INDEX idx_email (Email)
+);
+
+```
+
+### 2. Groups Table
+```sql
+CREATE TABLE `Groups` (
+    GroupID INT AUTO_INCREMENT PRIMARY KEY,
+    CreatorID INT NOT NULL,
+    Name VARCHAR(100) NOT NULL,
+    Description TEXT,
+    PrivacyType ENUM('Public', 'Private') NOT NULL DEFAULT 'Public',
+    CreationDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    FOREIGN KEY (CreatorID) REFERENCES Users(UserID),
+    INDEX idx_creator (CreatorID)
+);
+```
+
+### 3. Group_Members (Junction Table)
+```sql
+CREATE TABLE Group_Members (
+    GroupID INT,
+    UserID INT,
+    JoinDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    PRIMARY KEY (GroupID, UserID),
+    FOREIGN KEY (GroupID) REFERENCES `Groups`(GroupID),
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
+);
+```
+
+### 4. Courses Table
+```sql
+CREATE TABLE Courses (
+    CourseID INT AUTO_INCREMENT PRIMARY KEY,
+    GroupID INT NOT NULL,
+    EducatorID INT NOT NULL,
+    Title VARCHAR(255) NOT NULL,
+    Description TEXT,
+    CreationDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    AccessType ENUM('Free', 'Paid') NOT NULL DEFAULT 'Free',
+    FOREIGN KEY (GroupID) REFERENCES `Groups`(GroupID),
+    FOREIGN KEY (EducatorID) REFERENCES Users(UserID),
+    INDEX idx_group (GroupID)
+);
+```
+
+### 5. Modules Table
+```sql
+CREATE TABLE Modules (
+    ModuleID INT AUTO_INCREMENT PRIMARY KEY,
+    CourseID INT NOT NULL,
+    Title VARCHAR(255) NOT NULL,
+    Content TEXT,
+    Resources TEXT,
+    `Order` INT NOT NULL,
+    FOREIGN KEY (CourseID) REFERENCES Courses(CourseID),
+    INDEX idx_course (CourseID)
+);
+```
+
+### 6. Discussions Table
+```sql
+CREATE TABLE Discussions (
+    DiscussionID INT AUTO_INCREMENT PRIMARY KEY,
+    GroupID INT NOT NULL,
+    CreatorID INT NOT NULL,
+    Content TEXT NOT NULL,
+    CreationDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (GroupID) REFERENCES `Groups`(GroupID),
+    FOREIGN KEY (CreatorID) REFERENCES Users(UserID),
+    INDEX idx_group (GroupID)
+);
+```
+
+### 7. Events Table
+```sql
+CREATE TABLE Events (
+    EventID INT AUTO_INCREMENT PRIMARY KEY,
+    GroupID INT NOT NULL,
+    Title VARCHAR(255) NOT NULL,
+    Description TEXT,
+    StartTime DATETIME NOT NULL,
+    EndTime DATETIME NOT NULL,
+    TimeZone VARCHAR(50) NOT NULL DEFAULT 'UTC',
+    Location ENUM('Online', 'Offline') NOT NULL,
+    FOREIGN KEY (GroupID) REFERENCES `Groups`(GroupID),
+    INDEX idx_group (GroupID)
+);
+```
+
+### 8. Event_RSVPs (Junction Table)
+```sql
+CREATE TABLE Event_RSVPs (
+    EventID INT,
+    UserID INT,
+    RSVPStatus ENUM('Yes', 'No', 'Maybe') NOT NULL DEFAULT 'Yes',
+    RSVPDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (EventID, UserID),
+    FOREIGN KEY (EventID) REFERENCES Events(EventID),
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
+);
+```
+
+### 9. Progress Table
+```sql
+CREATE TABLE Progress (
+    ProgressID INT AUTO_INCREMENT PRIMARY KEY,
+    MemberID INT NOT NULL,
+    CourseID INT NOT NULL,
+    ModuleID INT NOT NULL,
+    CompletionStatus ENUM('Not Started', 'In Progress', 'Completed') NOT NULL DEFAULT 'Not Started',
+    Timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (MemberID) REFERENCES Users(UserID),
+    FOREIGN KEY (CourseID) REFERENCES Courses(CourseID),
+    FOREIGN KEY (ModuleID) REFERENCES Modules(ModuleID),
+    UNIQUE KEY unique_progress (MemberID, CourseID, ModuleID)
+);
+```
+
+## Step 3: Verify Database Structure
+
+To verify your database structure, you can use these commands:
+
+```sql
+-- Show all tables
+SHOW TABLES;
+
+-- Describe structure of any table
+DESCRIBE Users;
+DESCRIBE `Groups`;
+-- etc.
+
+-- Show create statement for any table
+SHOW CREATE TABLE Users;
+SHOW CREATE TABLE `Groups`;
+-- etc.
+```
+
+## Important Notes:
+
+1. The backticks (\`) around `Groups` are necessary because "Groups" is a reserved word in MySQL.
+2. All tables use InnoDB engine (default in MySQL 8.0+) to support foreign key constraints.
+3. Appropriate indexes have been added for frequently accessed columns.
+4. AUTO_INCREMENT is used for all primary key IDs.
+5. Foreign keys ensure referential integrity.
+6. Junction tables (Group_Members, Event_RSVPs) handle many-to-many relationships.
+7. ENUM types are used to restrict possible values for certain fields.
+8. Timestamps and dates use appropriate MySQL date/time types.
+
+## Testing the Database
+
+After creating the tables, you can test the structure by inserting some sample data:
+
+```sql
+-- Insert a test user
+INSERT INTO Users (Name, Email, Role)
+VALUES ('John Doe', 'john@example.com', 'Educator');
+
+-- Insert a test group
+INSERT INTO `Groups` (CreatorID, Name, Description)
+VALUES (1, 'Test Group', 'This is a test group');
+
+-- Verify the insertions
+SELECT * FROM Users;
+SELECT * FROM `Groups`;
+```
+
+## Common Issues and Solutions:
+
+1. If you get foreign key errors, make sure you're creating tables in the correct order.
+2. If you need to start over, you can drop the database and recreate it:
+```sql
+DROP DATABASE skool_db;
+CREATE DATABASE skool_db;
+USE skool_db;
+```
+3. If you need to modify a table structure later:
+```sql
+ALTER TABLE table_name ADD COLUMN column_name datatype;
+```
